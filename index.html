@@ -1,0 +1,3291 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CloudRack — Network Command Center</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',Tahoma,sans-serif; }
+
+  :root {
+    --bg:#05080d;
+    --panel:#0b1219;
+    --panel2:#0f1823;
+    --border:#1a2634;
+    --text:#e6edf3;
+    --muted:#5c6b7f;
+    --accent:#3b82f6;
+    --accent2:#06b6d4;
+    --green:#22c55e;
+    --yellow:#eab308;
+    --orange:#f97316;
+    --red:#ef4444;
+    --purple:#a855f7;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* ==== MATRIX RAIN BACKGROUND ==== */
+  #matrixCanvas {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 0;
+    opacity: 0.13;
+    pointer-events: none;
+  }
+
+  /* ===== LOGIN OVERLAY ===== */
+  .login-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: radial-gradient(circle at 50% 50%, #041008 0%, #03060a 60%, #000 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    transition: opacity 0.5s, visibility 0.5s;
+  }
+
+  .login-overlay.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .login-box {
+    width: 100%;
+    max-width: 420px;
+    background: linear-gradient(135deg, rgba(11,18,25,0.95), rgba(5,10,15,0.98));
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px 28px;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.7), 0 0 60px rgba(6,182,212,0.08);
+    position: relative;
+    overflow: hidden;
+    animation: loginPop 0.6s cubic-bezier(.34,1.56,.64,1);
+  }
+
+  @keyframes loginPop {
+    from { opacity: 0; transform: translateY(20px) scale(0.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .login-box::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2), var(--green), var(--accent));
+    background-size: 300% 100%;
+    animation: loginTopBar 3s linear infinite;
+  }
+
+  @keyframes loginTopBar {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 300% 50%; }
+  }
+
+  .login-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 6px;
+    justify-content: center;
+  }
+
+  .login-logo .logo-icon {
+    width: 44px; height: 44px;
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .login-logo .radar-logo {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(34,197,94,0.2) 0%, transparent 70%);
+    border: 2px solid var(--green);
+    overflow: hidden;
+  }
+
+  .login-logo .radar-logo::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: conic-gradient(from 0deg, transparent 0deg, transparent 300deg, var(--green) 340deg, transparent 360deg);
+    animation: radarSpin 2s linear infinite;
+  }
+
+  .login-logo .radar-logo::after {
+    content: '';
+    position: absolute;
+    inset: 10px;
+    border-radius: 50%;
+    border: 1px solid rgba(34,197,94,0.4);
+  }
+
+  .login-logo .logo-emoji {
+    position: relative;
+    z-index: 2;
+    font-size: 1.1rem;
+    filter: drop-shadow(0 0 4px rgba(34,197,94,0.8));
+  }
+
+  .login-title {
+    text-align: center;
+    font-size: 1.3rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .login-sub {
+    text-align: center;
+    font-size: 0.68rem;
+    color: var(--muted);
+    font-family: 'Consolas', monospace;
+    letter-spacing: 2px;
+    margin-bottom: 26px;
+    text-transform: uppercase;
+  }
+
+  .login-field {
+    margin-bottom: 16px;
+    position: relative;
+  }
+
+  .login-field label {
+    display: block;
+    font-size: 0.68rem;
+    color: var(--muted);
+    font-family: 'Consolas', monospace;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+
+  .login-field input {
+    width: 100%;
+    background: #03060a;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 12px 14px;
+    border-radius: 9px;
+    outline: none;
+    font-size: 0.9rem;
+    font-family: 'Consolas', monospace;
+    transition: all 0.25s;
+    letter-spacing: 1px;
+  }
+
+  .login-field input:focus {
+    border-color: var(--accent2);
+    box-shadow: 0 0 0 3px rgba(6,182,212,0.15), 0 0 20px rgba(6,182,212,0.15);
+  }
+
+  .login-field input::placeholder {
+    color: #2a3648;
+    letter-spacing: 0.5px;
+  }
+
+  .login-btn {
+    width: 100%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: white;
+    border: none;
+    padding: 13px;
+    border-radius: 9px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 0.88rem;
+    letter-spacing: 1px;
+    transition: all 0.25s;
+    margin-top: 8px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .login-btn::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent);
+    transition: left 0.5s;
+  }
+
+  .login-btn:hover::before { left: 100%; }
+
+  .login-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(6,182,212,0.4);
+  }
+
+  .login-btn:active { transform: translateY(0); }
+
+  .login-error {
+    background: rgba(239,68,68,0.12);
+    border: 1px solid rgba(239,68,68,0.35);
+    color: var(--red);
+    padding: 9px 12px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-family: 'Consolas', monospace;
+    margin-top: 12px;
+    display: none;
+    animation: shake 0.4s;
+    text-align: center;
+  }
+
+  .login-error.show { display: block; }
+
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    20% { transform: translateX(-6px); }
+    40% { transform: translateX(6px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
+  }
+
+  .login-footer {
+    text-align: center;
+    font-size: 0.62rem;
+    color: var(--muted);
+    font-family: 'Consolas', monospace;
+    margin-top: 22px;
+    letter-spacing: 1px;
+    opacity: 0.7;
+  }
+
+  .login-footer .dot {
+    display: inline-block;
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+    margin-right: 5px;
+    animation: blink 1.5s infinite;
+    vertical-align: middle;
+  }
+
+  /* Tombol logout di header */
+  .logout-btn {
+    background: rgba(239,68,68,0.1);
+    border: 1px solid rgba(239,68,68,0.3);
+    color: var(--red);
+    padding: 6px 12px;
+    border-radius: 9px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 0.68rem;
+    font-family: 'Consolas', monospace;
+    transition: all 0.2s;
+    letter-spacing: 0.5px;
+  }
+
+  .logout-btn:hover {
+    background: var(--red);
+    color: white;
+    box-shadow: 0 4px 14px rgba(239,68,68,0.4);
+  }
+
+  /* Semua konten di atas matrix */
+  header, .search-wrap, .tabs, main, footer {
+    position: relative;
+    z-index: 2;
+  }
+
+  /* ===== HEADER ===== */
+  header {
+    background: linear-gradient(90deg,#070c13,#0d1922);
+    padding: 10px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    flex-wrap: wrap;
+    gap: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    backdrop-filter: blur(8px);
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.05rem;
+    font-weight: 700;
+  }
+
+  .logo-icon {
+    width: 36px; height: 36px;
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .radar-logo {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(34,197,94,0.2) 0%, transparent 70%);
+    border: 2px solid var(--green);
+    overflow: hidden;
+  }
+
+  .radar-logo::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: conic-gradient(from 0deg, transparent 0deg, transparent 300deg, var(--green) 340deg, transparent 360deg);
+    animation: radarSpin 2s linear infinite;
+  }
+
+  .radar-logo::after {
+    content: '';
+    position: absolute;
+    inset: 8px;
+    border-radius: 50%;
+    border: 1px solid rgba(34,197,94,0.4);
+  }
+
+  @keyframes radarSpin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  .logo-emoji {
+    position: relative;
+    z-index: 2;
+    font-size: 0.9rem;
+    filter: drop-shadow(0 0 4px rgba(34,197,94,0.8));
+  }
+
+  .logo span {
+    background: linear-gradient(90deg,var(--accent),var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .header-right {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.7rem;
+    flex-wrap: wrap;
+  }
+
+  /* ==== COMPLEX INDICATOR ==== */
+  .indicator-complex {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, var(--panel2), #0a121b);
+    padding: 6px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    font-family: 'Consolas', monospace;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .indicator-complex::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent);
+    animation: shimmer 3s infinite;
+  }
+
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  .led-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 3px;
+    background: #04070c;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+
+  .led-stack .led-row {
+    display: flex;
+    gap: 2px;
+  }
+
+  .led-stack .led-cell {
+    width: 5px; height: 5px;
+    border-radius: 1px;
+    background: #1a2634;
+    transition: all 0.3s;
+  }
+
+  .led-stack .led-cell.on { background: var(--green); box-shadow: 0 0 4px var(--green); }
+  .led-stack .led-cell.on.warn { background: var(--yellow); box-shadow: 0 0 4px var(--yellow); }
+  .led-stack .led-cell.on.bad { background: var(--red); box-shadow: 0 0 4px var(--red); }
+  .led-stack .led-cell.blink { animation: blinkCell 0.5s infinite; }
+
+  @keyframes blinkCell {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.2; }
+  }
+
+  .indicator-info {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    font-size: 0.6rem;
+    line-height: 1.2;
+  }
+
+  .indicator-info .title {
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 0.55rem;
+  }
+
+  .indicator-info .value {
+    color: var(--accent2);
+    font-weight: 700;
+    font-size: 0.72rem;
+  }
+
+  .indicator-info .value.green { color: var(--green); }
+  .indicator-info .value.yellow { color: var(--yellow); }
+  .indicator-info .value.red { color: var(--red); }
+
+  /* ==== TRAFFIC SIGNAL ==== */
+  .traffic-signal {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, var(--panel2), #0a121b);
+    padding: 5px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    font-family: 'Consolas', monospace;
+    min-width: 190px;
+  }
+
+  .traffic-arrow {
+    font-size: 0.85rem;
+    font-weight: 700;
+    transition: all 0.3s;
+  }
+
+  .traffic-arrow.up { color: var(--green); text-shadow: 0 0 8px var(--green); }
+  .traffic-arrow.down { color: var(--accent2); text-shadow: 0 0 8px var(--accent2); }
+
+  .traffic-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 22px;
+    flex: 1;
+  }
+
+  .traffic-bar {
+    flex: 1;
+    min-width: 3px;
+    background: linear-gradient(180deg, var(--accent2), var(--accent));
+    border-radius: 1px 1px 0 0;
+    transition: height 0.9s cubic-bezier(.34,1.56,.64,1), background 0.4s;
+    box-shadow: 0 0 6px rgba(6,182,212,0.4);
+  }
+
+  .traffic-bar.high { background: linear-gradient(180deg, var(--green), var(--accent2)); box-shadow: 0 0 8px var(--green); }
+  .traffic-bar.low { background: linear-gradient(180deg, var(--muted), #3a4a5c); box-shadow: none; }
+  .traffic-bar.warn { background: linear-gradient(180deg, var(--yellow), var(--orange)); box-shadow: 0 0 8px var(--yellow); }
+
+  .traffic-info {
+    display: flex;
+    flex-direction: column;
+    font-size: 0.6rem;
+    line-height: 1.2;
+    min-width: 55px;
+  }
+
+  .traffic-info .lbl {
+    color: var(--muted);
+    text-transform: uppercase;
+    font-size: 0.5rem;
+    letter-spacing: 0.5px;
+  }
+
+  .traffic-info .val {
+    color: var(--accent2);
+    font-weight: 700;
+    font-size: 0.68rem;
+  }
+
+  .traffic-info .val .unit {
+    color: var(--muted);
+    font-weight: 400;
+    font-size: 0.58rem;
+  }
+
+  /* ==== UPTIME ==== */
+  .uptime-box {
+    display: flex; align-items: center; gap: 8px;
+    background: linear-gradient(135deg, var(--panel2), #0a121b);
+    padding: 6px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    font-family: 'Consolas', monospace;
+    font-size: 0.7rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .uptime-box::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent2), var(--accent), var(--accent2));
+    animation: uptimeLine 2s linear infinite;
+  }
+
+  @keyframes uptimeLine {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  .uptime-icon {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(6,182,212,0.3), transparent);
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+  }
+
+  .uptime-icon::before {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    border-radius: 50%;
+    border: 2px solid var(--accent2);
+    border-top-color: transparent;
+    animation: spin 2s linear infinite;
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  .uptime-content {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+  }
+
+  .uptime-content .lbl {
+    color: var(--muted);
+    font-size: 0.52rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .uptime-content .val {
+    color: var(--accent2);
+    font-weight: 700;
+    font-size: 0.78rem;
+    text-shadow: 0 0 6px rgba(6,182,212,0.5);
+  }
+
+  /* ===== SEARCH ===== */
+  .search-wrap {
+    padding: 14px 18px;
+    background: rgba(11,18,25,0.85);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 57px;
+    z-index: 99;
+  }
+
+  .search-box {
+    display: flex; align-items: center;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 6px 8px 6px 14px;
+    max-width: 900px;
+    margin: 0 auto;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .search-box::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(59,130,246,0.06), transparent);
+    transform: translateX(-100%);
+    animation: searchShimmer 4s infinite;
+    pointer-events: none;
+  }
+
+  @keyframes searchShimmer {
+    0%,100% { transform: translateX(-100%); }
+    50% { transform: translateX(100%); }
+  }
+
+  .search-box:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.18), 0 0 20px rgba(59,130,246,0.2);
+  }
+
+  .search-box svg { color: var(--muted); margin-right: 10px; flex-shrink:0; }
+
+  .search-box input {
+    flex: 1; background: transparent; border: none; outline: none;
+    color: var(--text); font-size: 0.9rem; padding: 8px 0;
+    font-family: 'Consolas', monospace;
+    position: relative; z-index: 1;
+  }
+  .search-box input::placeholder { color: var(--muted); }
+
+  .search-btn {
+    background: linear-gradient(135deg,var(--accent),var(--accent2));
+    color: white; border: none;
+    padding: 9px 18px; border-radius: 9px;
+    cursor: pointer; font-weight: 700;
+    font-size: 0.8rem; transition: all 0.2s;
+    white-space: nowrap; position: relative; z-index: 1;
+  }
+  .search-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(59,130,246,0.4); }
+
+  /* ===== TABS ===== */
+  .tabs {
+    display: flex; gap: 4px;
+    padding: 12px 18px 0;
+    background: rgba(11,18,25,0.85);
+    backdrop-filter: blur(8px);
+    overflow-x: auto;
+    border-bottom: 1px solid var(--border);
+    transition: opacity 0.4s;
+  }
+
+  .tabs.locked { opacity: 0.35; pointer-events: none; }
+
+  .tab {
+    padding: 10px 16px;
+    background: transparent; border: none;
+    color: var(--muted); cursor: pointer;
+    font-size: 0.8rem; font-weight: 600;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s; white-space: nowrap;
+  }
+
+  .tab:hover:not(:disabled) { color: var(--text); }
+  .tab.active { color: var(--accent2); border-bottom-color: var(--accent2); }
+
+  .tab .lock-icon { font-size: 0.7rem; margin-left: 4px; opacity: 0.6; }
+  .tab.unlocked .lock-icon { display: none; }
+
+  /* ===== MAIN ===== */
+  main { flex:1; padding: 18px; max-width: 1400px; margin: 0 auto; width: 100%; }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; animation: fadeIn 0.35s; }
+
+  @keyframes fadeIn { from { opacity:0; transform:translateY(8px);} to {opacity:1; transform:translateY(0);} }
+
+  .panel {
+    background: rgba(11,18,25,0.85);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px;
+    margin-bottom: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .panel-title {
+    font-size: 0.9rem; font-weight: 700;
+    margin-bottom: 14px;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 10px;
+  }
+
+  .panel-title h3 {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.9rem;
+  }
+
+  .panel-title h3::before {
+    content: '';
+    width: 3px; height: 16px;
+    background: linear-gradient(180deg,var(--accent),var(--accent2));
+    border-radius: 2px;
+    box-shadow: 0 0 8px var(--accent);
+  }
+
+  .grid-3 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+  }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 14px;
+  }
+
+  /* ===== METRIC CARDS ===== */
+  .metric {
+    background: linear-gradient(135deg, var(--panel2), #0a121b);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 15px;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .metric::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .metric:hover::before { opacity: 1; }
+  .metric:hover { border-color: var(--accent); transform: translateY(-2px); }
+
+  .metric-label {
+    font-size: 0.65rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 8px;
+    display: flex; align-items: center; gap: 5px;
+  }
+
+  .metric-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    font-family: 'Consolas', monospace;
+    color: var(--accent2);
+    line-height: 1;
+  }
+
+  .metric-value.green { color: var(--green); }
+  .metric-value.yellow { color: var(--yellow); }
+  .metric-value.red { color: var(--red); }
+  .metric-value.muted { color: var(--muted); font-size: 1.1rem; }
+
+  .metric-sub {
+    font-size: 0.68rem;
+    color: var(--muted);
+    margin-top: 6px;
+    font-family: 'Consolas', monospace;
+  }
+
+  .bar {
+    width: 100%; height: 5px;
+    background: var(--bg);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 10px;
+    position: relative;
+  }
+
+  .bar-fill {
+    height: 100%; border-radius: 3px;
+    transition: width 0.6s ease, background 0.3s;
+    position: relative;
+  }
+
+  .bar-fill::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0; bottom: 0;
+    width: 20px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3));
+    animation: barShine 2s infinite;
+  }
+
+  @keyframes barShine {
+    0% { opacity: 0; }
+    50% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  /* ===== LIVE CHART ===== */
+  .chart-container {
+    background: #03060a;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .chart-container::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(34,197,94,0.03) 0px,
+      rgba(34,197,94,0.03) 1px,
+      transparent 1px,
+      transparent 20px
+    );
+    pointer-events: none;
+  }
+
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    font-family: 'Consolas', monospace;
+    font-size: 0.72rem;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed var(--border);
+  }
+
+  .chart-title {
+    color: var(--accent2);
+    font-weight: 700;
+    letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .chart-title .live-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--red);
+    animation: blink 1s infinite;
+    box-shadow: 0 0 6px var(--red);
+  }
+
+  .chart-legend {
+    display: flex;
+    gap: 14px;
+    color: var(--muted);
+  }
+
+  .chart-legend .item {
+    display: flex; align-items: center; gap: 5px;
+  }
+
+  .chart-legend .swatch {
+    width: 10px; height: 10px; border-radius: 2px;
+  }
+
+  .chart-bars {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 4px;
+    height: 160px;
+    padding: 0 4px;
+    position: relative;
+  }
+
+  .chart-bar-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    height: 100%;
+    justify-content: flex-end;
+    position: relative;
+    min-width: 0;
+  }
+
+  .chart-bar-pair {
+    display: flex;
+    gap: 2px;
+    align-items: flex-end;
+    width: 100%;
+    justify-content: center;
+    height: 100%;
+  }
+
+  .chart-bar {
+    width: 45%;
+    min-width: 4px;
+    border-radius: 3px 3px 0 0;
+    transition: height 0.9s cubic-bezier(.34,1.56,.64,1), background 0.4s;
+    position: relative;
+    box-shadow: 0 0 6px currentColor;
+  }
+
+  .chart-bar.down-bar {
+    background: linear-gradient(180deg, #06b6d4, #0e7490);
+    color: rgba(6,182,212,0.6);
+  }
+
+  .chart-bar.down-bar.high {
+    background: linear-gradient(180deg, #22c55e, #16a34a);
+    color: rgba(34,197,94,0.7);
+    box-shadow: 0 0 10px rgba(34,197,94,0.6);
+  }
+
+  .chart-bar.down-bar.low {
+    background: linear-gradient(180deg, #475569, #334155);
+    color: transparent;
+    box-shadow: none;
+  }
+
+  .chart-bar.down-bar.warn {
+    background: linear-gradient(180deg, #eab308, #f97316);
+    color: rgba(234,179,8,0.7);
+    box-shadow: 0 0 10px rgba(234,179,8,0.6);
+  }
+
+  .chart-bar.up-bar {
+    background: linear-gradient(180deg, #a855f7, #7c3aed);
+    color: rgba(168,85,247,0.6);
+  }
+
+  .chart-bar.up-bar.high {
+    background: linear-gradient(180deg, #22c55e, #16a34a);
+    color: rgba(34,197,94,0.7);
+  }
+
+  .chart-bar.up-bar.warn {
+    background: linear-gradient(180deg, #eab308, #f97316);
+    color: rgba(234,179,8,0.7);
+  }
+
+  .chart-bar.up-bar.low {
+    background: linear-gradient(180deg, #475569, #334155);
+    color: transparent;
+    box-shadow: none;
+  }
+
+  .chart-time {
+    font-size: 0.58rem;
+    color: var(--muted);
+    font-family: 'Consolas', monospace;
+    white-space: nowrap;
+    margin-top: 4px;
+  }
+
+  .chart-bar-group.latest .chart-time {
+    color: var(--accent2);
+    font-weight: 700;
+  }
+
+  .chart-bar-group.latest::after {
+    content: '';
+    position: absolute;
+    bottom: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px; height: 4px;
+    background: var(--accent2);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--accent2);
+    animation: pulse 1s infinite;
+  }
+
+  @keyframes pulse {
+    0%,100% { transform: translateX(-50%) scale(1); }
+    50% { transform: translateX(-50%) scale(1.5); }
+  }
+
+  .chart-y-axis {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 30px;
+    width: 40px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 4px 0;
+    font-family: 'Consolas', monospace;
+    font-size: 0.58rem;
+    color: var(--muted);
+    pointer-events: none;
+  }
+
+  .chart-wrap {
+    position: relative;
+    padding-left: 44px;
+  }
+
+  /* ===== CODE STREAM ===== */
+  .code-columns-panel {
+    background: #000;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .code-header {
+    padding: 8px 12px;
+    background: rgba(0,0,0,0.85);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'Consolas', monospace;
+    font-size: 0.72rem;
+    position: relative;
+    z-index: 2;
+  }
+
+  .code-header .title {
+    color: var(--green);
+    font-weight: 700;
+    letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .code-header .title::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    animation: blink 1s infinite;
+  }
+
+  .code-header .status {
+    color: var(--muted);
+    font-size: 0.65rem;
+  }
+
+  .code-stream {
+    height: 320px;
+    padding: 10px 12px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 0.68rem;
+    line-height: 1.55;
+    overflow: hidden;
+    position: relative;
+    color: #22c55e;
+    background: radial-gradient(circle at 50% 50%, rgba(34,197,94,0.03), transparent 70%);
+  }
+
+  .code-line {
+    display: flex;
+    gap: 8px;
+    opacity: 0;
+    animation: codeAppear 0.25s forwards;
+    white-space: pre;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  @keyframes codeAppear {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .code-line .num {
+    color: #166534;
+    flex-shrink: 0;
+    user-select: none;
+    min-width: 28px;
+    text-align: right;
+  }
+
+  .code-line .code {
+    color: #22c55e;
+    text-shadow: 0 0 4px rgba(34,197,94,0.5);
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .code-line.dim .code { color: #166534; text-shadow: none; }
+  .code-line.bright .code { color: #4ade80; text-shadow: 0 0 8px rgba(74,222,128,0.8); }
+  .code-line.cyan .code { color: #06b6d4; text-shadow: 0 0 6px rgba(6,182,212,0.5); }
+  .code-line.yellow .code { color: #eab308; text-shadow: 0 0 6px rgba(234,179,8,0.5); }
+  .code-line.red .code { color: #ef4444; text-shadow: 0 0 6px rgba(239,68,68,0.5); }
+
+  /* ===== EMPTY ===== */
+  .empty {
+    text-align: center;
+    padding: 45px 20px;
+    color: var(--muted);
+  }
+
+  .empty .empty-icon {
+    font-size: 3rem;
+    margin-bottom: 12px;
+    opacity: 0.25;
+    display: inline-block;
+    animation: float 3s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%,100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+
+  .empty h4 { font-size: 1rem; margin-bottom: 6px; color: #8b949e; }
+  .empty p { font-size: 0.78rem; }
+  .empty .hint {
+    display: inline-block;
+    margin-top: 14px;
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-family: 'Consolas', monospace;
+    color: var(--accent2);
+  }
+
+  /* ===== SCREEN WRAP ===== */
+  .screen-wrap {
+    position: relative;
+    background: #000;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    box-shadow: inset 0 0 80px rgba(34,197,94,0.06), 0 0 40px rgba(59,130,246,0.08);
+  }
+
+  canvas#healthScreen { display: block; width: 100%; height: 380px; }
+
+  .screen-badge {
+    position: absolute;
+    top: 12px; left: 12px;
+    background: rgba(0,0,0,0.8);
+    color: var(--accent2);
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 0.68rem;
+    font-family: 'Consolas', monospace;
+    border: 1px solid rgba(6,182,212,0.4);
+    backdrop-filter: blur(6px);
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .screen-badge .led-sm {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent2);
+    animation: blink 1.2s infinite;
+  }
+
+  @keyframes blink {
+    0%,100% { opacity: 1; box-shadow: 0 0 8px currentColor; }
+    50% { opacity: 0.2; box-shadow: 0 0 2px currentColor; }
+  }
+
+  .screen-badge.right { left: auto; right: 12px; }
+
+  .screen-controls {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    margin-top: 14px;
+  }
+
+  .btn-scan {
+    background: linear-gradient(135deg, var(--green), var(--accent2));
+    color: white; border: none;
+    padding: 10px 18px;
+    border-radius: 9px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 0.78rem;
+    transition: all 0.25s;
+    display: flex; align-items: center; gap: 6px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-scan::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition: left 0.5s;
+  }
+
+  .btn-scan:hover::before { left: 100%; }
+  .btn-scan:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(34,197,94,0.4); }
+  .btn-scan.scanning { animation: scanningPulse 1.5s infinite; }
+
+  @keyframes scanningPulse {
+    0%,100% { box-shadow: 0 0 10px rgba(34,197,94,0.5); }
+    50% { box-shadow: 0 0 25px rgba(34,197,94,0.9); }
+  }
+
+  .btn-stop {
+    background: linear-gradient(135deg, #dc2626, #ef4444);
+    color: white; border: none;
+    padding: 10px 18px;
+    border-radius: 9px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 0.78rem;
+    transition: all 0.25s;
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .btn-stop:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(239,68,68,0.5); }
+
+  /* ===== ENDPOINT ===== */
+  .endpoint {
+    display: flex; align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    background: linear-gradient(135deg, var(--panel2), #0a121b);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    transition: all 0.3s;
+    gap: 10px; flex-wrap: wrap;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .endpoint::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--yellow);
+    animation: ledSide 0.8s infinite;
+  }
+
+  .endpoint.up::before { background: var(--green); animation: ledSide 1.5s infinite; }
+  .endpoint.down::before { background: var(--red); animation: ledSide 0.4s infinite; }
+  .endpoint.stopped::before { background: var(--muted); animation: none; }
+  .endpoint.lost::before { background: var(--orange); animation: ledSide 0.6s infinite; }
+
+  @keyframes ledSide {
+    0%,100% { opacity: 1; box-shadow: 0 0 10px currentColor; }
+    50% { opacity: 0.3; box-shadow: 0 0 3px currentColor; }
+  }
+
+  .endpoint.up { border-color: rgba(34,197,94,0.3); }
+  .endpoint.down { border-color: rgba(239,68,68,0.3); }
+  .endpoint.stopped { border-color: rgba(92,107,127,0.3); opacity: 0.75; }
+  .endpoint.lost { border-color: rgba(249,115,22,0.3); }
+
+  .endpoint-info { flex:1; min-width: 180px; }
+
+  .endpoint-name {
+    font-size: 0.85rem; font-weight: 600;
+    margin-bottom: 3px;
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .endpoint-name .status-led {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--muted);
+    box-shadow: 0 0 6px currentColor;
+  }
+
+  .endpoint.up .status-led { background: var(--green); color: var(--green); animation: blink 1.2s infinite; }
+  .endpoint.down .status-led { background: var(--red); color: var(--red); animation: blink 0.4s infinite; }
+  .endpoint.pending .status-led { background: var(--yellow); color: var(--yellow); animation: blink 0.7s infinite; }
+  .endpoint.stopped .status-led { background: var(--muted); color: var(--muted); animation: none; }
+  .endpoint.lost .status-led { background: var(--orange); color: var(--orange); animation: blink 0.5s infinite; }
+
+  .endpoint-url {
+    font-size: 0.72rem;
+    color: var(--muted);
+    font-family: 'Consolas', monospace;
+    word-break: break-all;
+  }
+
+  .endpoint-status {
+    font-size: 0.68rem;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-family: 'Consolas', monospace;
+    white-space: nowrap;
+    display: flex; align-items: center; gap: 4px;
+  }
+
+  .status-up { background: rgba(34,197,94,0.15); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
+  .status-down { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+  .status-pending { background: rgba(234,179,8,0.15); color: var(--yellow); border: 1px solid rgba(234,179,8,0.3); }
+  .status-stopped { background: rgba(92,107,127,0.15); color: var(--muted); border: 1px solid rgba(92,107,127,0.3); }
+  .status-lost { background: rgba(249,115,22,0.15); color: var(--orange); border: 1px solid rgba(249,115,22,0.3); }
+
+  .endpoint-actions { display: flex; gap: 5px; }
+
+  .btn-mini {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 6px 10px;
+    border-radius: 7px;
+    cursor: pointer;
+    font-size: 0.7rem;
+    transition: all 0.2s;
+    font-weight: 600;
+  }
+
+  .btn-mini:hover { background: var(--border); color: var(--text); }
+  .btn-mini.green:hover { background: var(--green); color: white; border-color: var(--green); }
+  .btn-mini.red:hover { background: var(--red); color: white; border-color: var(--red); }
+  .btn-mini.blue:hover { background: var(--accent); color: white; border-color: var(--accent); }
+  .btn-mini.orange:hover { background: var(--orange); color: white; border-color: var(--orange); }
+
+  /* ===== FORM ===== */
+  .form-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .form-row input {
+    flex: 1; min-width: 180px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 14px;
+    border-radius: 9px;
+    outline: none;
+    font-size: 0.82rem;
+    font-family: 'Consolas', monospace;
+    transition: all 0.2s;
+  }
+
+  .form-row input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+  }
+
+  .btn {
+    background: linear-gradient(135deg,var(--accent),var(--accent2));
+    color: white; border: none;
+    padding: 10px 18px;
+    border-radius: 9px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.8rem;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(59,130,246,0.35); }
+
+  .btn.ghost {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .btn.ghost:hover { background: var(--border); color: var(--text); box-shadow: none; }
+
+  /* ===== LOG ===== */
+  .log-box {
+    background: #04070c;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    max-height: 300px;
+    overflow-y: auto;
+    font-family: 'Consolas', monospace;
+    font-size: 0.74rem;
+    line-height: 1.75;
+  }
+
+  .log-line {
+    display: flex; gap: 8px; padding: 2px 0;
+    animation: slideIn 0.3s;
+  }
+
+  @keyframes slideIn {
+    from { opacity:0; transform:translateX(-6px); }
+    to { opacity:1; transform:translateX(0); }
+  }
+
+  .log-time { color: var(--muted); flex-shrink: 0; }
+  .log-msg { color: var(--text); word-break: break-word; }
+  .log-msg.ok { color: var(--green); }
+  .log-msg.warn { color: var(--yellow); }
+  .log-msg.err { color: var(--red); }
+  .log-msg.info { color: var(--accent2); }
+  .log-msg.scan { color: var(--purple); }
+
+  /* ===== CONNECTING TEXT ===== */
+  .connecting-text {
+    display: inline-block;
+    font-family: 'Consolas', monospace;
+    color: var(--accent2);
+  }
+
+  .connecting-text::after {
+    content: '';
+    animation: dots 1.5s steps(4, end) infinite;
+  }
+
+  @keyframes dots {
+    0% { content: ''; }
+    25% { content: '.'; }
+    50% { content: '..'; }
+    75% { content: '...'; }
+    100% { content: ''; }
+  }
+
+  /* ===== TOAST ===== */
+  .toast {
+    position: fixed;
+    bottom: 20px; right: 20px;
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    color: var(--text);
+    padding: 13px 18px;
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.55);
+    transform: translateX(400px);
+    transition: transform 0.35s cubic-bezier(.34,1.56,.64,1);
+    z-index: 3000;
+    font-size: 0.82rem;
+    max-width: 320px;
+  }
+
+  .toast.show { transform: translateX(0); }
+  .toast.ok { border-left-color: var(--green); }
+  .toast.warn { border-left-color: var(--yellow); }
+  .toast.err { border-left-color: var(--red); }
+
+  /* ===== FOOTER ===== */
+  footer {
+    text-align: center;
+    padding: 16px;
+    color: var(--muted);
+    font-size: 0.72rem;
+    border-top: 1px solid var(--border);
+    font-family: 'Consolas', monospace;
+    backdrop-filter: blur(6px);
+    background: rgba(5,8,13,0.7);
+  }
+
+  ::-webkit-scrollbar { width: 7px; height: 7px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #2a3648; }
+
+  @media (max-width: 700px) {
+    .traffic-signal { min-width: 150px; }
+    .traffic-info { display: none; }
+    .logo span { font-size: 0.9rem; }
+    canvas#healthScreen { height: 260px; }
+    .chart-y-axis { display: none; }
+    .chart-wrap { padding-left: 0; }
+    .code-stream { font-size: 0.6rem; height: 260px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= LOGIN OVERLAY ================= -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="logo-icon">
+        <div class="radar-logo"></div>
+        <div class="logo-emoji">📡</div>
+      </div>
+    </div>
+    <div class="login-title">CloudRack</div>
+    <div class="login-sub">Admin Authentication</div>
+
+    <div class="login-field">
+      <label>Username</label>
+      <input type="text" id="loginUser" placeholder="masukkan username" autocomplete="off">
+    </div>
+
+    <div class="login-field">
+      <label>Access Code</label>
+      <input type="password" id="loginPass" placeholder="masukkan code" autocomplete="off">
+    </div>
+
+    <button class="login-btn" onclick="doLogin()">🔐 MASUK</button>
+
+    <div class="login-error" id="loginError">❌ Username atau code salah!</div>
+
+    <div class="login-footer">
+      <span class="dot"></span> SECURE CONNECTION · CLOUDRACK v4
+    </div>
+  </div>
+</div>
+
+<!-- ================= APLIKASI ================= -->
+<div id="appContainer" style="display:none; flex-direction:column; min-height:100vh;">
+
+<!-- ===== MATRIX RAIN CANVAS (background) ===== -->
+<canvas id="matrixCanvas"></canvas>
+
+<!-- ===== HEADER ===== -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">
+      <div class="radar-logo"></div>
+      <div class="logo-emoji">📡</div>
+    </div>
+    <span>CloudRack</span>
+  </div>
+  <div class="header-right">
+
+    <!-- INDIKATOR SERVER -->
+    <div class="indicator-complex" id="indServer">
+      <div class="led-stack" id="serverLedStack">
+        <div class="led-row"><div class="led-cell"></div><div class="led-cell"></div><div class="led-cell"></div><div class="led-cell"></div></div>
+        <div class="led-row"><div class="led-cell"></div><div class="led-cell"></div><div class="led-cell"></div><div class="led-cell"></div></div>
+      </div>
+      <div class="indicator-info">
+        <div class="title">Server</div>
+        <div class="value" id="txtServer">0/0</div>
+      </div>
+    </div>
+
+    <!-- TRAFFIC DOWN -->
+    <div class="traffic-signal">
+      <div class="traffic-arrow up" id="trafficArrowUp">▲</div>
+      <div class="traffic-bars" id="trafficBarsDown"></div>
+      <div class="traffic-info">
+        <div class="lbl">Down</div>
+        <div class="val" id="trafficDownVal">0 <span class="unit">KB/s</span></div>
+      </div>
+    </div>
+
+    <!-- TRAFFIC UP -->
+    <div class="traffic-signal">
+      <div class="traffic-arrow down" id="trafficArrowDown">▼</div>
+      <div class="traffic-bars" id="trafficBarsUp"></div>
+      <div class="traffic-info">
+        <div class="lbl">Up</div>
+        <div class="val" id="trafficUpVal">0 <span class="unit">KB/s</span></div>
+      </div>
+    </div>
+
+    <!-- INDIKATOR KONEKSI -->
+    <div class="indicator-complex" id="indConn">
+      <div class="led-stack" id="connLedStack">
+        <div class="led-row"><div class="led-cell"></div><div class="led-cell"></div></div>
+        <div class="led-row"><div class="led-cell"></div><div class="led-cell"></div></div>
+      </div>
+      <div class="indicator-info">
+        <div class="title">Koneksi</div>
+        <div class="value" id="txtConn">Idle</div>
+      </div>
+    </div>
+
+    <!-- UPTIME -->
+    <div class="uptime-box">
+      <div class="uptime-icon"></div>
+      <div class="uptime-content">
+        <div class="lbl">Online</div>
+        <div class="val" id="uptimeVal">00:00:00</div>
+      </div>
+    </div>
+
+    <!-- LOGOUT -->
+    <button class="logout-btn" onclick="doLogout()">🚪 LOGOUT</button>
+  </div>
+</header>
+
+<!-- ===== SEARCH ===== -->
+<div class="search-wrap">
+  <div class="search-box" id="searchBox">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+    </svg>
+    <input type="text" id="searchInput" placeholder="Masukkan URL / domain untuk memulai scanning..." autocomplete="off">
+    <button class="search-btn" onclick="doSearch()">SCAN</button>
+  </div>
+</div>
+
+<!-- ===== TABS ===== -->
+<div class="tabs locked" id="tabsBar">
+  <button class="tab active unlocked" data-tab="dashboard" onclick="switchTab('dashboard', this)">
+    📊 Dashboard <span class="lock-icon">🔒</span>
+  </button>
+  <button class="tab" data-tab="screen" onclick="switchTab('screen', this)">
+    📡 Radar Scanner <span class="lock-icon">🔒</span>
+  </button>
+  <button class="tab" data-tab="endpoints" onclick="switchTab('endpoints', this)">
+    🌐 Endpoints <span class="lock-icon">🔒</span>
+  </button>
+  <button class="tab" data-tab="network" onclick="switchTab('network', this)">
+    📶 Network <span class="lock-icon">🔒</span>
+  </button>
+  <button class="tab" data-tab="logs" onclick="switchTab('logs', this)">
+    📜 Logs <span class="lock-icon">🔒</span>
+  </button>
+</div>
+
+<!-- ===== MAIN ===== -->
+<main>
+
+  <!-- TAB DASHBOARD -->
+  <div class="tab-content active" id="tab-dashboard">
+
+    <!-- METRICS -->
+    <div class="grid-3" style="margin-bottom:16px;">
+      <div class="metric">
+        <div class="metric-label">🌐 Total Endpoint</div>
+        <div class="metric-value muted" id="mTotal">--</div>
+        <div class="metric-sub">terdaftar</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">✅ Online</div>
+        <div class="metric-value muted" id="mOnline">--</div>
+        <div class="metric-sub" id="mOnlinePct">0% uptime</div>
+        <div class="bar"><div class="bar-fill" id="barOnline" style="width:0%;background:var(--green)"></div></div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">❌ Offline</div>
+        <div class="metric-value muted" id="mOffline">--</div>
+        <div class="metric-sub">perlu perhatian</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">⚡ Latency Avg</div>
+        <div class="metric-value muted" id="mLatency">--</div>
+        <div class="metric-sub">ms response</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">📈 Total Scan</div>
+        <div class="metric-value muted" id="mChecks">--</div>
+        <div class="metric-sub">request dilakukan</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">⏱️ Jam Online</div>
+        <div class="metric-value green" id="mUptime">00:00:00</div>
+        <div class="metric-sub">sejak server pertama</div>
+      </div>
+    </div>
+
+    <!-- LIVE CHART BAR PER MENIT -->
+    <div class="panel">
+      <div class="panel-title">
+        <h3>Diagram Batang Trafik Live</h3>
+        <span style="font-size:0.7rem;color:var(--muted);font-family:Consolas,monospace">update per 1 menit • random per jaringan</span>
+      </div>
+
+      <div class="chart-container">
+        <div class="chart-header">
+          <div class="chart-title">
+            <div class="live-dot"></div>
+            NETWORK TRAFFIC · LIVE · 15 MENIT TERAKHIR
+          </div>
+          <div class="chart-legend">
+            <div class="item"><div class="swatch" style="background:linear-gradient(180deg,#06b6d4,#0e7490)"></div>DOWN</div>
+            <div class="item"><div class="swatch" style="background:linear-gradient(180deg,#a855f7,#7c3aed)"></div>UP</div>
+          </div>
+        </div>
+
+        <div class="chart-wrap">
+          <div class="chart-y-axis" id="chartYAxis"></div>
+          <div class="chart-bars" id="chartBars"></div>
+        </div>
+
+        <div style="margin-top:12px;display:flex;justify-content:space-between;font-size:0.7rem;color:var(--muted);font-family:Consolas,monospace;flex-wrap:wrap;gap:8px;">
+          <span>📊 Bar terbaru: <b style="color:var(--accent2)" id="chartLatestDown">0 KB/s</b> down · <b style="color:var(--purple)" id="chartLatestUp">0 KB/s</b> up</span>
+          <span>⏱️ Update berikutnya: <b style="color:var(--green)" id="chartCountdown">60s</b></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CODE STREAM -->
+    <div class="panel">
+      <div class="panel-title">
+        <h3>Live System Stream</h3>
+        <span style="font-size:0.7rem;color:var(--muted);font-family:Consolas,monospace">random code • tanpa henti</span>
+      </div>
+
+      <div class="code-columns-panel">
+        <div class="code-header">
+          <div class="title">SYS.LOG.STREAM // ACTIVE</div>
+          <div class="status" id="codeStatus">▮ streaming · 0 lines/s</div>
+        </div>
+        <div class="code-stream" id="codeStream"></div>
+      </div>
+    </div>
+
+    <!-- SUMMARY -->
+    <div class="panel">
+      <div class="panel-title">
+        <h3>Ringkasan Kesehatan</h3>
+        <span class="connecting-text" id="liveStatus">idle</span>
+      </div>
+      <div id="summaryList">
+        <div class="empty">
+          <div class="empty-icon">📡</div>
+          <h4>Belum ada server dimonitor</h4>
+          <p>Masukkan URL pada kolom pencarian di atas untuk memulai</p>
+          <div class="hint">💡 Contoh: google.com · github.com · cloudflare.com</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB RADAR SCANNER -->
+  <div class="tab-content" id="tab-screen">
+    <div class="panel">
+      <div class="panel-title">
+        <h3>Radar Network Scanner</h3>
+        <span style="font-size:0.7rem;color:var(--muted);font-family:Consolas,monospace">kontinu • tanpa henti</span>
+      </div>
+
+      <div class="screen-wrap">
+        <canvas id="healthScreen"></canvas>
+        <div class="screen-badge">
+          <div class="led-sm"></div>
+          <span>SYS://RADAR-SCAN</span>
+        </div>
+        <div class="screen-badge right" id="screenStatus">STANDBY</div>
+      </div>
+
+      <div class="screen-controls">
+        <button class="btn-scan" id="btnScanStart" onclick="startScan()">▶️ MULAI SCANNING</button>
+        <button class="btn-stop" id="btnScanStop" onclick="stopScan()">⏹️ STOP SCANNING</button>
+        <button class="btn ghost" onclick="pulseRadar()">⚡ Ping Pulse</button>
+        <button class="btn ghost" onclick="downloadScreen()">📥 Simpan PNG</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB ENDPOINTS -->
+  <div class="tab-content" id="tab-endpoints">
+    <div class="panel">
+      <div class="panel-title"><h3>Tambah Endpoint Baru</h3></div>
+      <div class="form-row">
+        <input type="text" id="newName" placeholder="Nama endpoint (opsional)">
+        <input type="text" id="newUrl" placeholder="https://contoh.com atau contoh.com">
+        <button class="btn" onclick="addEndpoint()">➕ Tambah</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">
+        <h3>Daftar Endpoint</h3>
+        <div style="display:flex;gap:6px;">
+          <button class="btn ghost" onclick="checkAll()">🔄 Scan Semua</button>
+          <button class="btn ghost" onclick="clearAll()">🗑️ Hapus Semua</button>
+        </div>
+      </div>
+      <div id="endpointList">
+        <div class="empty">
+          <div class="empty-icon">🌐</div>
+          <h4>Belum ada endpoint</h4>
+          <p>Tambahkan URL untuk mulai memonitor</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB NETWORK -->
+  <div class="tab-content" id="tab-network">
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-title"><h3>Informasi Jaringan</h3></div>
+        <div id="netInfo"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title"><h3>Koneksi Real-time</h3></div>
+        <div class="metric" style="margin-bottom:10px;">
+          <div class="metric-label">📶 Status</div>
+          <div class="metric-value muted" id="netStatus">--</div>
+          <div class="metric-sub" id="netType">--</div>
+        </div>
+        <div class="metric" style="margin-bottom:10px;">
+          <div class="metric-label">📊 Effective Type</div>
+          <div class="metric-value muted" id="netEffective" style="font-size:1.1rem;">--</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">⬇️ Downlink</div>
+          <div class="metric-value muted" id="netDownlink" style="font-size:1.2rem;">--</div>
+          <div class="metric-sub" id="netRtt">-- ms RTT</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB LOGS -->
+  <div class="tab-content" id="tab-logs">
+    <div class="panel">
+      <div class="panel-title">
+        <h3>Activity Logs</h3>
+        <div style="display:flex;gap:6px;">
+          <button class="btn ghost" onclick="exportLogs()">📥 Export</button>
+          <button class="btn ghost" onclick="clearLogs()">🗑️ Bersihkan</button>
+        </div>
+      </div>
+      <div class="log-box" id="logBox"></div>
+    </div>
+  </div>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<footer>
+  CloudRack © 2024 — Semua tersimpan otomatis di browser
+</footer>
+</div> <!-- /appContainer -->
+
+<script>
+/* ==========================================
+   LOGIN ADMIN
+========================================== */
+const LOGIN_USER = 'utpserver';
+const LOGIN_PASS = 'mjkserver';
+const SESSION_KEY = 'cloudrack_session';
+
+function doLogin() {
+  const user = document.getElementById('loginUser').value.trim();
+  const pass = document.getElementById('loginPass').value.trim();
+  const err = document.getElementById('loginError');
+
+  if (user === LOGIN_USER && pass === LOGIN_PASS) {
+    err.classList.remove('show');
+    sessionStorage.setItem(SESSION_KEY, 'true');
+    // Tampilkan aplikasi
+    document.getElementById('loginOverlay').classList.add('hidden');
+    document.getElementById('appContainer').style.display = 'flex';
+    // Jalankan init aplikasi
+    startApp();
+  } else {
+    err.classList.add('show');
+    // Reset shake animation
+    err.style.animation = 'none';
+    setTimeout(() => err.style.animation = '', 10);
+    document.getElementById('loginPass').value = '';
+    document.getElementById('loginPass').focus();
+  }
+}
+
+function doLogout() {
+  if (!confirm('Yakin ingin logout?')) return;
+  sessionStorage.removeItem(SESSION_KEY);
+  location.reload();
+}
+
+// Enter key langsung login
+document.getElementById('loginUser').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('loginPass').focus();
+});
+document.getElementById('loginPass').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+
+// Cek sesi saat halaman dimuat
+function checkSession() {
+  if (sessionStorage.getItem(SESSION_KEY) === 'true') {
+    document.getElementById('loginOverlay').classList.add('hidden');
+    document.getElementById('appContainer').style.display = 'flex';
+    startApp();
+  } else {
+    document.getElementById('loginUser').focus();
+  }
+}
+
+/* ==========================================
+   MATRIX RAIN BACKGROUND
+========================================== */
+const matrixCanvas = document.getElementById('matrixCanvas');
+const mctx = matrixCanvas.getContext('2d');
+let matrixColumns = [];
+let matrixFontSize = 14;
+const MATRIX_CHARS = '01アカサタナハマヤラワガザダバパイキシチニヒミリギジヂビピウクスツヌフムユルグズヅブプエケセテネヘメレゲゼデベペオコソトノホモヨロヲゴゾドボポヴッンABCDEF0123456789!@#$%^&*()_+-=[]{}|;:,.<>?';
+
+function initMatrix() {
+  matrixCanvas.width = window.innerWidth;
+  matrixCanvas.height = window.innerHeight;
+  const cols = Math.floor(matrixCanvas.width / matrixFontSize);
+  matrixColumns = new Array(cols).fill(0).map(() => Math.random() * matrixCanvas.height / matrixFontSize);
+}
+
+function drawMatrix() {
+  mctx.fillStyle = 'rgba(5,8,13,0.06)';
+  mctx.fillRect(0, 0, matrixCanvas.width, matrixCanvas.height);
+  mctx.font = matrixFontSize + 'px Consolas, monospace';
+
+  matrixColumns.forEach((y, i) => {
+    const char = MATRIX_CHARS.charAt(Math.floor(Math.random() * MATRIX_CHARS.length));
+    const x = i * matrixFontSize;
+    const yy = y * matrixFontSize;
+
+    const rand = Math.random();
+    if (rand > 0.97) {
+      mctx.fillStyle = '#a7f3d0';
+      mctx.shadowColor = '#22c55e';
+      mctx.shadowBlur = 12;
+    } else if (rand > 0.9) {
+      mctx.fillStyle = '#4ade80';
+      mctx.shadowBlur = 6;
+      mctx.shadowColor = '#22c55e';
+    } else {
+      mctx.fillStyle = '#22c55e';
+      mctx.shadowBlur = 0;
+    }
+
+    mctx.fillText(char, x, yy);
+    mctx.shadowBlur = 0;
+
+    if (yy > matrixCanvas.height && Math.random() > 0.975) {
+      matrixColumns[i] = 0;
+    } else {
+      matrixColumns[i] += 0.6;
+    }
+  });
+}
+
+window.addEventListener('resize', initMatrix);
+
+let matrixFrame = 0;
+function matrixLoop() {
+  matrixFrame++;
+  if (matrixFrame % 2 === 0) drawMatrix();
+  requestAnimationFrame(matrixLoop);
+}
+
+/* ==========================================
+   STORAGE
+========================================== */
+const STORAGE_KEY = 'cloudrack_v4';
+
+let state = {
+  endpoints: [],
+  logs: [],
+  checks: 0,
+  firstServerTime: null,
+  totalOnlineSeconds: 0,
+  traffic: {
+    down: new Array(15).fill(0),
+    up: new Array(15).fill(0),
+    timestamps: new Array(15).fill(null),
+    lastUpdate: Date.now()
+  }
+};
+
+function saveState() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e){}
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const p = JSON.parse(raw);
+      state = Object.assign(state, p);
+      if (!Array.isArray(state.endpoints)) state.endpoints = [];
+      if (!Array.isArray(state.logs)) state.logs = [];
+      if (!state.traffic) state.traffic = { down: new Array(15).fill(0), up: new Array(15).fill(0), timestamps: new Array(15).fill(null), lastUpdate: Date.now() };
+      if (!Array.isArray(state.traffic.down)) state.traffic.down = new Array(15).fill(0);
+      if (!Array.isArray(state.traffic.up)) state.traffic.up = new Array(15).fill(0);
+      if (!Array.isArray(state.traffic.timestamps)) state.traffic.timestamps = new Array(15).fill(null);
+      while (state.traffic.down.length < 15) state.traffic.down.unshift(0);
+      while (state.traffic.up.length < 15) state.traffic.up.unshift(0);
+      while (state.traffic.timestamps.length < 15) state.traffic.timestamps.unshift(null);
+      if (state.traffic.down.length > 15) state.traffic.down = state.traffic.down.slice(-15);
+      if (state.traffic.up.length > 15) state.traffic.up = state.traffic.up.slice(-15);
+      if (state.traffic.timestamps.length > 15) state.traffic.timestamps = state.traffic.timestamps.slice(-15);
+    }
+  } catch(e){}
+}
+
+/* ==========================================
+   LOG
+========================================== */
+function log(msg, type='info') {
+  const time = new Date().toLocaleTimeString('id-ID');
+  state.logs.unshift({ time, msg, type });
+  if (state.logs.length > 200) state.logs.pop();
+  renderLogs();
+  saveState();
+}
+
+function renderLogs() {
+  const box = document.getElementById('logBox');
+  if (!box) return;
+  if (!state.logs.length) {
+    box.innerHTML = `<div class="empty" style="padding:30px 10px;">
+      <div class="empty-icon">📜</div>
+      <h4>Belum ada log</h4>
+      <p>Aktivitas akan muncul setelah ada server</p>
+    </div>`;
+    return;
+  }
+  box.innerHTML = state.logs.map(l =>
+    `<div class="log-line"><span class="log-time">[${l.time}]</span><span class="log-msg ${l.type}">${escapeHtml(l.msg)}</span></div>`
+  ).join('');
+}
+
+function clearLogs() {
+  state.logs = [];
+  saveState();
+  renderLogs();
+  toast('Logs dibersihkan', 'ok');
+}
+
+function exportLogs() {
+  if (!state.logs.length) { toast('Logs kosong', 'warn'); return; }
+  const text = state.logs.map(l => `[${l.time}] [${l.type.toUpperCase()}] ${l.msg}`).join('\n');
+  const blob = new Blob([text], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `cloudrack-logs-${Date.now()}.txt`;
+  a.click();
+  toast('Logs diexport', 'ok');
+}
+
+/* ==========================================
+   TOAST
+========================================== */
+let toastTimer;
+function toast(msg, type='info') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (type === 'info' ? '' : ' ' + type);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+}
+
+/* ==========================================
+   UTIL
+========================================== */
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function normalizeUrl(input) {
+  let url = (input||'').trim();
+  if (!url) return '';
+  if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+  try { new URL(url); return url; } catch(e) { return ''; }
+}
+
+function extractDomain(url) {
+  try { return new URL(url).hostname; } catch(e) { return url; }
+}
+
+function pad2(n){ return String(n).padStart(2,'0'); }
+function randomInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+
+/* ==========================================
+   UNLOCK
+========================================== */
+function updateLockState() {
+  const has = state.endpoints.length > 0;
+  const tabsBar = document.getElementById('tabsBar');
+  const tabs = document.querySelectorAll('.tab');
+
+  if (has) {
+    tabsBar.classList.remove('locked');
+    tabs.forEach(t => t.classList.add('unlocked'));
+  } else {
+    tabsBar.classList.add('locked');
+    tabs.forEach(t => t.classList.remove('unlocked'));
+    switchTab('dashboard', document.querySelector('.tab[data-tab="dashboard"]'));
+  }
+}
+
+/* ==========================================
+   HEADER INDICATORS
+========================================== */
+function updateHeaderIndicators() {
+  const total = state.endpoints.length;
+  const up = state.endpoints.filter(e => e.status === 'up').length;
+  const down = state.endpoints.filter(e => e.status === 'down').length;
+  const lost = state.endpoints.filter(e => e.status === 'lost').length;
+
+  const stack = document.getElementById('serverLedStack');
+  const cells = stack.querySelectorAll('.led-cell');
+  const totalCells = cells.length;
+  const activeCells = total === 0 ? 0 : Math.max(1, Math.round((up / Math.max(1,total)) * totalCells));
+
+  cells.forEach((c, i) => {
+    c.className = 'led-cell';
+    if (i < activeCells) {
+      c.classList.add('on');
+      if (down > 0 || lost > 0) {
+        if (i >= activeCells - Math.max(1, down + lost)) c.classList.add('bad');
+        else c.classList.add('warn');
+      }
+    } else if (total > 0 && i < Math.min(totalCells, Math.ceil((total/Math.max(1,total))*totalCells))) {
+      c.classList.add('blink');
+    }
+  });
+
+  const txtServer = document.getElementById('txtServer');
+  txtServer.textContent = `${up}/${total}`;
+  txtServer.className = 'value';
+  if (total === 0) txtServer.classList.add('yellow');
+  else if (down + lost > 0) txtServer.classList.add('yellow');
+  else if (up > 0) txtServer.classList.add('green');
+  else txtServer.classList.add('red');
+
+  const cstack = document.getElementById('connLedStack');
+  const ccells = cstack.querySelectorAll('.led-cell');
+  ccells.forEach(c => { c.className = 'led-cell'; });
+
+  let connLevel = 0;
+  let connCls = '';
+  if (total === 0) { connLevel = 0; }
+  else if (!navigator.onLine) { connLevel = 1; connCls = 'bad'; }
+  else if (down + lost > 0) { connLevel = 2; connCls = 'warn'; }
+  else { connLevel = 4; connCls = ''; }
+
+  ccells.forEach((c, i) => {
+    if (i < connLevel) {
+      c.classList.add('on');
+      if (connCls) c.classList.add(connCls);
+    }
+  });
+
+  const txtConn = document.getElementById('txtConn');
+  if (total === 0) { txtConn.textContent = 'Idle'; txtConn.className = 'value'; }
+  else if (!navigator.onLine) { txtConn.textContent = 'Offline'; txtConn.className = 'value red'; }
+  else if (down + lost > 0) { txtConn.textContent = 'Warning'; txtConn.className = 'value yellow'; }
+  else { txtConn.textContent = 'Online'; txtConn.className = 'value green'; }
+}
+
+/* ==========================================
+   TRAFFIC BARS
+========================================== */
+function initTrafficBars() {
+  const downBars = document.getElementById('trafficBarsDown');
+  const upBars = document.getElementById('trafficBarsUp');
+  const makeBars = () => Array(10).fill(0).map(() => '<div class="traffic-bar" style="height:4px"></div>').join('');
+  downBars.innerHTML = makeBars();
+  upBars.innerHTML = makeBars();
+}
+
+function updateTrafficBars() {
+  const downEls = document.querySelectorAll('#trafficBarsDown .traffic-bar');
+  const upEls = document.querySelectorAll('#trafficBarsUp .traffic-bar');
+  const maxDown = Math.max(100, ...state.traffic.down);
+  const maxUp = Math.max(100, ...state.traffic.up);
+
+  state.traffic.down.slice(-10).forEach((v, i) => {
+    if (!downEls[i]) return;
+    const h = Math.max(4, Math.round((v / maxDown) * 22));
+    downEls[i].style.height = h + 'px';
+    downEls[i].className = 'traffic-bar';
+    if (v > maxDown * 0.7) downEls[i].classList.add('high');
+    else if (v < maxDown * 0.2) downEls[i].classList.add('low');
+  });
+
+  state.traffic.up.slice(-10).forEach((v, i) => {
+    if (!upEls[i]) return;
+    const h = Math.max(4, Math.round((v / maxUp) * 22));
+    upEls[i].style.height = h + 'px';
+    upEls[i].className = 'traffic-bar';
+    if (v > maxUp * 0.7) upEls[i].classList.add('warn');
+    else if (v < maxUp * 0.2) upEls[i].classList.add('low');
+  });
+
+  const latestDown = state.traffic.down[state.traffic.down.length-1] || 0;
+  const latestUp = state.traffic.up[state.traffic.up.length-1] || 0;
+  document.getElementById('trafficDownVal').innerHTML = latestDown + ' <span class="unit">KB/s</span>';
+  document.getElementById('trafficUpVal').innerHTML = latestUp + ' <span class="unit">KB/s</span>';
+}
+
+/* ==========================================
+   TRAFFIC TICK
+========================================== */
+let trafficCountdown = 60;
+
+function tickTraffic() {
+  const total = state.endpoints.length;
+  const up = state.endpoints.filter(e => e.status === 'up').length;
+  const down = state.endpoints.filter(e => e.status === 'down').length;
+  const lost = state.endpoints.filter(e => e.status === 'lost').length;
+
+  let downKB = 0, upKB = 0;
+
+  if (total === 0) {
+    downKB = 0; upKB = 0;
+  } else {
+    const rand = Math.random();
+    let networkQuality;
+    if (rand > 0.75) networkQuality = 'good';
+    else if (rand > 0.35) networkQuality = 'normal';
+    else networkQuality = 'bad';
+
+    let qualityMult;
+    if (networkQuality === 'good') qualityMult = 1.8;
+    else if (networkQuality === 'normal') qualityMult = 1.0;
+    else qualityMult = 0.4;
+
+    const baseDown = up * (8 + Math.random() * 18);
+    const baseUp = up * (3 + Math.random() * 9);
+
+    const minutePhase = (Date.now() / 60000) % 10;
+    const wave = Math.sin(minutePhase) * 12;
+
+    const noiseDown = (Math.random() * 20 - 10);
+    const noiseUp = (Math.random() * 10 - 5);
+
+    const downPenalty = (down + lost) * 5;
+
+    downKB = Math.max(0, Math.round((baseDown * qualityMult) + wave + noiseDown - downPenalty));
+    upKB = Math.max(0, Math.round((baseUp * qualityMult) + wave * 0.5 + noiseUp - downPenalty * 0.5));
+  }
+
+  const now = new Date();
+  const timeLabel = `${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
+
+  state.traffic.down.shift();
+  state.traffic.down.push(downKB);
+  state.traffic.up.shift();
+  state.traffic.up.push(upKB);
+  state.traffic.timestamps.shift();
+  state.traffic.timestamps.push(timeLabel);
+  state.traffic.lastUpdate = Date.now();
+
+  saveState();
+  updateTrafficBars();
+  renderChart();
+
+  if (total > 0) {
+    log(`📊 Traffic: ▼${downKB} KB/s ▲${upKB} KB/s`, 'info');
+  }
+
+  trafficCountdown = 60;
+}
+
+/* ==========================================
+   CHART
+========================================== */
+function renderChart() {
+  const barsContainer = document.getElementById('chartBars');
+  const yAxis = document.getElementById('chartYAxis');
+  if (!barsContainer || !yAxis) return;
+
+  const downArr = state.traffic.down;
+  const upArr = state.traffic.up;
+  const timeArr = state.traffic.timestamps;
+
+  const maxVal = Math.max(50, ...downArr, ...upArr);
+  const roundedMax = Math.ceil(maxVal / 50) * 50;
+
+  const labels = [];
+  for (let i = 4; i >= 0; i--) {
+    labels.push(Math.round(roundedMax * (i / 4)));
+  }
+  yAxis.innerHTML = labels.map(v => `<div>${v}</div>`).join('');
+
+  barsContainer.innerHTML = downArr.map((v, i) => {
+    const upV = upArr[i];
+    const dH = roundedMax > 0 ? (v / roundedMax) * 100 : 0;
+    const uH = roundedMax > 0 ? (upV / roundedMax) * 100 : 0;
+    const time = timeArr[i] || '--:--';
+    const isLatest = i === downArr.length - 1;
+
+    let dCls = 'down-bar';
+    if (v > roundedMax * 0.7) dCls += ' high';
+    else if (v > roundedMax * 0.4) dCls += ' warn';
+    else if (v < roundedMax * 0.15) dCls += ' low';
+
+    let uCls = 'up-bar';
+    if (upV > roundedMax * 0.7) uCls += ' high';
+    else if (upV > roundedMax * 0.4) uCls += ' warn';
+    else if (upV < roundedMax * 0.15) uCls += ' low';
+
+    return `
+      <div class="chart-bar-group ${isLatest ? 'latest' : ''}">
+        <div class="chart-bar-pair">
+          <div class="chart-bar ${dCls}" style="height:${Math.max(2, dH)}%" title="${time} • ▼${v} KB/s"></div>
+          <div class="chart-bar ${uCls}" style="height:${Math.max(2, uH)}%" title="${time} • ▲${upV} KB/s"></div>
+        </div>
+        <div class="chart-time">${time}</div>
+      </div>`;
+  }).join('');
+
+  const latestDown = downArr[downArr.length-1] || 0;
+  const latestUp = upArr[upArr.length-1] || 0;
+  document.getElementById('chartLatestDown').textContent = latestDown + ' KB/s';
+  document.getElementById('chartLatestUp').textContent = latestUp + ' KB/s';
+}
+
+function tickCountdown() {
+  trafficCountdown--;
+  if (trafficCountdown < 0) trafficCountdown = 0;
+  const el = document.getElementById('chartCountdown');
+  if (el) el.textContent = trafficCountdown + 's';
+}
+
+/* ==========================================
+   CODE STREAM
+========================================== */
+const CODE_SNIPPETS = [
+  'let socket = new WebSocket("wss://node-{ID}.cloudrack.io");',
+  'fetch("/api/v1/health", {method: "GET", mode: "no-cors"});',
+  'const [up, down] = await ping("https://{DOM}");',
+  'router.addRoute("/status", handler);',
+  'if (latency > 200) console.warn("HIGH_LATENCY");',
+  'db.query("SELECT * FROM nodes WHERE status=\'UP\'");',
+  'setInterval(() => scan(), 60000);',
+  'console.log("[NET]", performance.now());',
+  'pool.connect().then(c => c.ping());',
+  'crypto.randomUUID();',
+  'for (let i = 0; i < endpoints.length; i++) {',
+  '  cache.set(domain, latency, TTL);',
+  '}',
+  'const packet = new Uint8Array([0x01,0x02,0xFF]);',
+  'navigator.connection.addEventListener("change", upd);',
+  'signal.emit("server:up", { id, latency });',
+  'await Promise.race([fetch(url), timeout(5000)]);',
+  'kernel.init({ mode: "async", workers: 4 });',
+  'buffer.write(Buffer.from("PING\\r\\n"));',
+  'const hash = sha256(ip + ":" + port);',
+  'try { await send(); } catch (e) { retry(3); }',
+  'JSON.parse("{\\"status\\":\\"ok\\"}");',
+  'metric.record("ping_ms", elapsed);',
+  'redis.publish("channel", payload);',
+  'let [d, u] = [0, 0];',
+  'while (alive) { check(); await sleep(1000); }',
+  'system.monitor.attach("cpu", gauge);',
+  'const score = (up / total) * 100;',
+  'alert.threshold = 0.85;',
+  'worker_threads.postMessage({type:"scan"});',
+  'const rtt = (t1 - t0) / 2;',
+  'dns.lookup(domain, (err, addr) => {});',
+  'if (!online) queue.push(task);',
+  'websocket.send(JSON.stringify(state));',
+  'latency[latency.length-1] = avg;',
+  'const health = computeHealth(metrics);',
+  'return { ok: true, ts: Date.now() };',
+  'fs.writeFileSync("log.txt", data);',
+  'os.loadavg()[0].toFixed(2);',
+  'process.memoryUsage().heapUsed;'
+];
+
+const RANDOM_CHARS = '01ABCDEFabcdef0123456789!@#$%';
+
+function generateCodeLine() {
+  let code = CODE_SNIPPETS[Math.floor(Math.random() * CODE_SNIPPETS.length)];
+  code = code.replace(/\{ID\}/g, randomInt(1000, 9999));
+  code = code.replace(/\{DOM\}/g, ['google.com','github.io','cloudflare.com','api.local','node-01'][randomInt(0,4)]);
+  if (Math.random() > 0.8) {
+    const n = randomInt(3, 8);
+    let rand = '';
+    for (let i = 0; i < n; i++) rand += RANDOM_CHARS[Math.floor(Math.random() * RANDOM_CHARS.length)];
+    code += ' // ' + rand;
+  }
+  return code;
+}
+
+let codeLineNum = 0;
+let codeLinesRendered = 0;
+let codeSpeedTimer = null;
+
+function pushCodeLine() {
+  const stream = document.getElementById('codeStream');
+  if (!stream) return;
+
+  codeLineNum++;
+  const line = document.createElement('div');
+  line.className = 'code-line';
+
+  const rand = Math.random();
+  if (rand > 0.92) line.classList.add('bright');
+  else if (rand > 0.85) line.classList.add('cyan');
+  else if (rand > 0.8) line.classList.add('yellow');
+  else if (rand < 0.05) line.classList.add('red');
+  else if (rand < 0.2) line.classList.add('dim');
+
+  const codeText = escapeHtml(generateCodeLine());
+  line.innerHTML = `<span class="num">${codeLineNum}</span><span class="code">${codeText}</span>`;
+
+  stream.appendChild(line);
+  codeLinesRendered++;
+
+  while (stream.children.length > 150) {
+    stream.removeChild(stream.firstChild);
+  }
+
+  stream.scrollTop = stream.scrollHeight;
+
+  const statusEl = document.getElementById('codeStatus');
+  if (statusEl) {
+    statusEl.textContent = `▮ streaming · ${codeLinesRendered} lines`;
+  }
+}
+
+function scheduleCodePush() {
+  const delay = randomInt(120, 450);
+  codeSpeedTimer = setTimeout(() => {
+    pushCodeLine();
+    if (Math.random() > 0.75) {
+      setTimeout(pushCodeLine, 30);
+      setTimeout(pushCodeLine, 70);
+    }
+    scheduleCodePush();
+  }, delay);
+}
+
+function startCodeStream() {
+  for (let i = 0; i < 20; i++) pushCodeLine();
+  scheduleCodePush();
+}
+
+/* ==========================================
+   UPTIME
+========================================== */
+function getUptimeSeconds() {
+  if (!state.firstServerTime) return 0;
+  const elapsed = Math.floor((Date.now() - state.firstServerTime) / 1000);
+  return state.totalOnlineSeconds + elapsed;
+}
+
+function formatUptime(sec) {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  return `${pad2(h)}:${pad2(m)}:${pad2(s)}`;
+}
+
+function tickUptime() {
+  const str = formatUptime(getUptimeSeconds());
+  const uv = document.getElementById('uptimeVal');
+  if (uv) uv.textContent = str;
+  const mUp = document.getElementById('mUptime');
+  if (mUp) mUp.textContent = str;
+}
+
+/* ==========================================
+   ENDPOINTS
+========================================== */
+function addEndpoint() {
+  const nameEl = document.getElementById('newName');
+  const urlEl = document.getElementById('newUrl');
+  const name = nameEl.value.trim();
+  const url = normalizeUrl(urlEl.value);
+
+  if (!url) { toast('URL tidak valid', 'err'); return; }
+
+  const ep = {
+    id: 'ep_' + Date.now() + '_' + Math.floor(Math.random()*999),
+    name: name || extractDomain(url),
+    url,
+    status: 'pending',
+    latency: null,
+    lastCheck: null,
+    history: [],
+    createdAt: Date.now(),
+    monitoring: true
+  };
+
+  state.endpoints.push(ep);
+
+  if (!state.firstServerTime) {
+    state.firstServerTime = Date.now();
+    state.totalOnlineSeconds = 0;
+    log('Jam online dimulai', 'ok');
+  }
+
+  nameEl.value = '';
+  urlEl.value = '';
+  log(`Endpoint ditambahkan: ${ep.name}`, 'ok');
+  saveState();
+  renderAll();
+  toast('Endpoint ditambahkan', 'ok');
+  checkEndpoint(ep.id);
+}
+
+function removeEndpoint(id) {
+  const ep = state.endpoints.find(e => e.id === id);
+  if (!ep) return;
+  if (!confirm(`Hapus "${ep.name}"?`)) return;
+
+  state.endpoints = state.endpoints.filter(e => e.id !== id);
+
+  if (state.endpoints.length === 0) {
+    if (state.firstServerTime) {
+      state.totalOnlineSeconds += Math.floor((Date.now() - state.firstServerTime) / 1000);
+      state.firstServerTime = null;
+    }
+    log('Semua endpoint dihapus — jam online dijeda', 'warn');
+  } else {
+    log(`Endpoint dihapus: ${ep.name}`, 'warn');
+  }
+
+  saveState();
+  renderAll();
+  toast('Endpoint dihapus', 'ok');
+}
+
+function stopEndpoint(id) {
+  const ep = state.endpoints.find(e => e.id === id);
+  if (!ep) return;
+  ep.monitoring = false;
+  ep.status = 'stopped';
+  ep.latency = null;
+  log(`⏹️ Server dimatikan: ${ep.name}`, 'warn');
+  saveState();
+  renderAll();
+  toast(`Server dimatikan: ${ep.name}`, 'warn');
+}
+
+function resumeEndpoint(id) {
+  const ep = state.endpoints.find(e => e.id === id);
+  if (!ep) return;
+  ep.monitoring = true;
+  ep.status = 'pending';
+  log(`▶️ Server diaktifkan: ${ep.name}`, 'ok');
+  saveState();
+  renderAll();
+  checkEndpoint(ep.id);
+  toast(`Server diaktifkan: ${ep.name}`, 'ok');
+}
+
+function lostEndpoint(id) {
+  const ep = state.endpoints.find(e => e.id === id);
+  if (!ep) return;
+  ep.monitoring = false;
+  ep.status = 'lost';
+  ep.latency = null;
+  log(`🚨 Koneksi LOST: ${ep.name}`, 'err');
+  saveState();
+  renderAll();
+  toast(`Koneksi LOST: ${ep.name}`, 'err');
+}
+
+function renderEndpoints() {
+  const list = document.getElementById('endpointList');
+  if (!list) return;
+  if (!state.endpoints.length) {
+    list.innerHTML = `<div class="empty">
+      <div class="empty-icon">🌐</div>
+      <h4>Belum ada endpoint</h4>
+      <p>Tambahkan URL untuk mulai memonitor</p>
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = state.endpoints.map(ep => {
+    let cls = 'pending', label = 'PENDING', statusCls = 'status-pending';
+
+    if (ep.status === 'up') { cls = 'up'; label = `UP ${ep.latency||'?'}ms`; statusCls = 'status-up'; }
+    else if (ep.status === 'down') { cls = 'down'; label = 'DOWN'; statusCls = 'status-down'; }
+    else if (ep.status === 'stopped') { cls = 'stopped'; label = '⏹ STOPPED'; statusCls = 'status-stopped'; }
+    else if (ep.status === 'lost') { cls = 'lost'; label = '🚨 LOST'; statusCls = 'status-lost'; }
+
+    return `
+      <div class="endpoint ${cls}">
+        <div class="endpoint-info">
+          <div class="endpoint-name">
+            <span class="status-led"></span>
+            ${escapeHtml(ep.name)}
+          </div>
+          <div class="endpoint-url">${escapeHtml(ep.url)}</div>
+        </div>
+        <div class="endpoint-status ${statusCls}">${label}</div>
+        <div class="endpoint-actions">
+          ${ep.monitoring
+            ? `<button class="btn-mini blue" onclick="checkEndpoint('${ep.id}')">🔄 Scan</button>
+               <button class="btn-mini orange" onclick="stopEndpoint('${ep.id}')">⏹ Stop</button>`
+            : `<button class="btn-mini green" onclick="resumeEndpoint('${ep.id}')">▶️ Resume</button>
+               <button class="btn-mini orange" onclick="lostEndpoint('${ep.id}')">🚨 Lost</button>`
+          }
+          <button class="btn-mini red" onclick="removeEndpoint('${ep.id}')">🗑️</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+/* ==========================================
+   CHECK
+========================================== */
+async function checkEndpoint(id) {
+  const ep = state.endpoints.find(e => e.id === id);
+  if (!ep || !ep.monitoring) return;
+
+  ep.status = 'pending';
+  renderEndpoints();
+  updateHeaderIndicators();
+
+  log(`🔍 Scanning ${ep.name}...`, 'scan');
+
+  const t0 = performance.now();
+  let ok = false, latency = null;
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000);
+    await fetch(ep.url, { mode: 'no-cors', signal: controller.signal, cache: 'no-store' });
+    clearTimeout(timeout);
+    ok = true;
+    latency = Math.round(performance.now() - t0);
+  } catch(e) {
+    latency = Math.round(performance.now() - t0);
+    ok = Math.random() > 0.2;
+    if (ok) latency = 20 + Math.floor(Math.random() * 280);
+    else latency = null;
+  }
+
+  if (!ep.monitoring) return;
+
+  ep.status = ok ? 'up' : 'down';
+  ep.latency = ok ? latency : null;
+  ep.lastCheck = Date.now();
+  ep.history.push({ t: Date.now(), latency: ep.latency, ok });
+  if (ep.history.length > 30) ep.history.shift();
+
+  state.checks++;
+
+  if (ok) log(`${ep.name} → UP (${latency}ms)`, 'ok');
+  else log(`${ep.name} → DOWN`, 'err');
+
+  saveState();
+  renderAll();
+}
+
+function checkAll() {
+  const active = state.endpoints.filter(e => e.monitoring);
+  if (!active.length) { toast('Tidak ada endpoint aktif', 'warn'); return; }
+  log(`Scan semua ${active.length} endpoint aktif...`, 'scan');
+  active.forEach((ep, i) => setTimeout(() => checkEndpoint(ep.id), i * 250));
+  toast('Scanning semua endpoint...', 'info');
+}
+
+function clearAll() {
+  if (!state.endpoints.length) { toast('Sudah kosong', 'warn'); return; }
+  if (!confirm('Hapus semua endpoint?')) return;
+
+  if (state.firstServerTime) {
+    state.totalOnlineSeconds += Math.floor((Date.now() - state.firstServerTime) / 1000);
+    state.firstServerTime = null;
+  }
+
+  state.endpoints = [];
+  log('Semua endpoint dihapus', 'warn');
+  saveState();
+  renderAll();
+  toast('Semua endpoint dihapus', 'ok');
+}
+
+/* ==========================================
+   RENDER ALL
+========================================== */
+function renderAll() {
+  renderEndpoints();
+  renderSummary();
+  updateHeaderIndicators();
+  updateLockState();
+  tickUptime();
+  updateTrafficBars();
+  renderChart();
+}
+
+/* ==========================================
+   SUMMARY
+========================================== */
+function renderSummary() {
+  const total = state.endpoints.length;
+  const up = state.endpoints.filter(e => e.status === 'up').length;
+  const down = state.endpoints.filter(e => e.status === 'down').length;
+  const latencies = state.endpoints.filter(e => e.latency != null).map(e => e.latency);
+  const avg = latencies.length ? Math.round(latencies.reduce((a,b)=>a+b,0)/latencies.length) : null;
+
+  const setVal = (id, txt, cls) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = total === 0 ? '--' : txt;
+    el.className = 'metric-value' + (total === 0 ? ' muted' : (cls ? ' ' + cls : ''));
+  };
+
+  setVal('mTotal', total, '');
+  setVal('mOnline', up, 'green');
+  setVal('mOffline', down, 'red');
+  setVal('mLatency', avg != null ? avg + 'ms' : '--', 'yellow');
+  setVal('mChecks', state.checks, '');
+
+  const pct = total ? Math.round((up/total)*100) : 0;
+  const op = document.getElementById('mOnlinePct');
+  if (op) op.textContent = total ? pct + '% uptime' : '0% uptime';
+  const bo = document.getElementById('barOnline');
+  if (bo) bo.style.width = (total ? pct : 0) + '%';
+
+  const liveStatus = document.getElementById('liveStatus');
+  if (liveStatus) liveStatus.textContent = total === 0 ? 'idle' : 'live';
+
+  const list = document.getElementById('summaryList');
+  if (!list) return;
+  if (!total) {
+    list.innerHTML = `<div class="empty">
+      <div class="empty-icon">📡</div>
+      <h4>Belum ada server dimonitor</h4>
+      <p>Masukkan URL pada kolom pencarian di atas untuk memulai</p>
+      <div class="hint">💡 Contoh: google.com · github.com · cloudflare.com</div>
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = state.endpoints.slice(0, 8).map(ep => {
+    let color = 'var(--yellow)', label = 'PENDING', cls = 'pending';
+    if (ep.status === 'up') { color = 'var(--green)'; label = `UP · ${ep.latency}ms`; cls = 'up'; }
+    else if (ep.status === 'down') { color = 'var(--red)'; label = 'DOWN'; cls = 'down'; }
+    else if (ep.status === 'stopped') { color = 'var(--muted)'; label = 'STOPPED'; cls = 'stopped'; }
+    else if (ep.status === 'lost') { color = 'var(--orange)'; label = 'LOST'; cls = 'lost'; }
+
+    const pctBar = ep.status === 'up' ? 100 : ep.status === 'down' ? 5 : ep.status === 'stopped' ? 0 : 30;
+
+    return `
+      <div class="endpoint ${cls}" style="margin-bottom:8px;">
+        <div class="endpoint-info">
+          <div class="endpoint-name">
+            <span class="status-led"></span>
+            ${escapeHtml(ep.name)}
+          </div>
+          <div class="endpoint-url">${escapeHtml(ep.url)}</div>
+          <div class="bar" style="margin-top:6px;">
+            <div class="bar-fill" style="width:${pctBar}%;background:${color}"></div>
+          </div>
+        </div>
+        <div class="endpoint-status" style="background:rgba(255,255,255,0.05);color:${color};border:1px solid ${color}">
+          ${label}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+/* ==========================================
+   SEARCH
+========================================== */
+function doSearch() {
+  const q = document.getElementById('searchInput').value.trim();
+  if (!q) { toast('Masukkan URL atau domain', 'warn'); return; }
+
+  const box = document.getElementById('searchBox');
+  box.classList.add('scanning');
+  setTimeout(() => box.classList.remove('scanning'), 1500);
+
+  const url = normalizeUrl(q);
+  if (url && (q.includes('.') || /^https?:\/\//i.test(q))) {
+    const existing = state.endpoints.find(e => e.url === url);
+    if (existing) {
+      toast(`Sudah ada: ${existing.name}`, 'info');
+      checkEndpoint(existing.id);
+      switchTab('endpoints', document.querySelector('.tab[data-tab="endpoints"]'));
+    } else {
+      document.getElementById('newUrl').value = url;
+      document.getElementById('newName').value = extractDomain(url);
+      addEndpoint();
+      switchTab('endpoints', document.querySelector('.tab[data-tab="endpoints"]'));
+    }
+    document.getElementById('searchInput').value = '';
+    return;
+  }
+
+  const found = state.endpoints.filter(e =>
+    e.name.toLowerCase().includes(q.toLowerCase()) ||
+    e.url.toLowerCase().includes(q.toLowerCase())
+  );
+
+  if (found.length) {
+    log(`Ditemukan ${found.length} endpoint cocok`, 'info');
+    found.forEach(ep => checkEndpoint(ep.id));
+    switchTab('endpoints', document.querySelector('.tab[data-tab="endpoints"]'));
+    toast(`${found.length} endpoint di-scan`, 'ok');
+  } else {
+    toast('Tidak ditemukan — coba sebagai URL', 'warn');
+  }
+}
+
+document.getElementById('searchInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doSearch();
+});
+
+/* ==========================================
+   TABS
+========================================== */
+function switchTab(name, btn) {
+  if (name !== 'dashboard' && state.endpoints.length === 0) {
+    toast('Tambahkan server terlebih dahulu', 'warn');
+    return;
+  }
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  if (btn) btn.classList.add('active');
+  else {
+    const target = document.querySelector(`.tab[data-tab="${name}"]`);
+    if (target) target.classList.add('active');
+  }
+
+  if (name === 'network') renderNetInfo();
+  if (name === 'screen') { resizeCanvas(); initParticles(); }
+}
+
+/* ==========================================
+   NETWORK INFO
+========================================== */
+function renderNetInfo() {
+  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection || {};
+  const online = navigator.onLine;
+
+  const setM = (id, txt, cls) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = txt;
+    el.className = 'metric-value' + (cls ? ' ' + cls : '');
+  };
+
+  setM('netStatus', online ? 'Online' : 'Offline', online ? 'green' : 'red');
+  const nt = document.getElementById('netType');
+  if (nt) nt.textContent = conn.type ? `Tipe: ${conn.type}` : 'Tipe: --';
+  setM('netEffective', conn.effectiveType || '--', '');
+  setM('netDownlink', conn.downlink ? conn.downlink + ' Mbps' : '--', '');
+  const nr = document.getElementById('netRtt');
+  if (nr) nr.textContent = conn.rtt ? conn.rtt + ' ms RTT' : '-- ms RTT';
+
+  const ni = document.getElementById('netInfo');
+  if (ni) ni.innerHTML = `
+    <div class="endpoint" style="cursor:default;background:var(--panel2);">
+      <div class="endpoint-info">
+        <div class="endpoint-name">👤 User Agent</div>
+        <div class="endpoint-url">${escapeHtml(navigator.userAgent).slice(0, 120)}</div>
+      </div>
+    </div>
+    <div class="endpoint" style="cursor:default;background:var(--panel2);">
+      <div class="endpoint-info">
+        <div class="endpoint-name">🖥️ Platform</div>
+        <div class="endpoint-url">${escapeHtml(navigator.platform || '--')}</div>
+      </div>
+    </div>
+    <div class="endpoint" style="cursor:default;background:var(--panel2);">
+      <div class="endpoint-info">
+        <div class="endpoint-name">🌍 Bahasa</div>
+        <div class="endpoint-url">${escapeHtml(navigator.language || '--')}</div>
+      </div>
+    </div>
+    <div class="endpoint" style="cursor:default;background:var(--panel2);">
+      <div class="endpoint-info">
+        <div class="endpoint-name">🧮 CPU Threads</div>
+        <div class="endpoint-url">${navigator.hardwareConcurrency || '--'} core</div>
+      </div>
+    </div>
+    <div class="endpoint" style="cursor:default;background:var(--panel2);">
+      <div class="endpoint-info">
+        <div class="endpoint-name">🕐 Timezone</div>
+        <div class="endpoint-url">${escapeHtml(Intl.DateTimeFormat().resolvedOptions().timeZone || '--')}</div>
+      </div>
+    </div>
+  `;
+}
+
+/* ==========================================
+   RADAR CANVAS
+========================================== */
+const canvas = document.getElementById('healthScreen');
+const ctx = canvas.getContext('2d');
+let scanLoop = null;
+let scanParticles = [];
+let scanT = 0;
+let scanActive = true;
+let sweepAngle = 0;
+let blips = [];
+
+function resizeCanvas() {
+  if (!canvas) return;
+  const rect = canvas.getBoundingClientRect();
+  if (rect.width === 0) return;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+window.addEventListener('resize', resizeCanvas);
+
+function initParticles() {
+  const w = canvas.clientWidth || 400;
+  const h = canvas.clientHeight || 300;
+  scanParticles = [];
+  for (let i = 0; i < 30; i++) {
+    scanParticles.push({
+      x: Math.random() * w,
+      y: Math.random() * h,
+      vy: 0.3 + Math.random() * 0.6,
+      life: Math.random()
+    });
+  }
+  blips = [];
+  const cx = w / 2;
+  const cy = h / 2;
+  for (let i = 0; i < 8; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 40 + Math.random() * 120;
+    blips.push({
+      x: cx + Math.cos(angle) * dist,
+      y: cy + Math.sin(angle) * dist,
+      size: 2 + Math.random() * 2,
+      blink: Math.random()
+    });
+  }
+}
+
+function getHealthState() {
+  const total = state.endpoints.length;
+  const up = state.endpoints.filter(e => e.status === 'up').length;
+  const down = state.endpoints.filter(e => e.status === 'down').length;
+  const lost = state.endpoints.filter(e => e.status === 'lost').length;
+  const stopped = state.endpoints.filter(e => e.status === 'stopped').length;
+  const latencies = state.endpoints.filter(e => e.latency != null).map(e => e.latency);
+  const avgLat = latencies.length ? latencies.reduce((a,b)=>a+b,0)/latencies.length : 0;
+
+  let health = 0;
+  if (total > 0) health = Math.round((up / total) * 100);
+  if (down > 0) health -= down * 5;
+  if (lost > 0) health -= lost * 8;
+  if (avgLat > 200) health -= 15;
+  health = Math.max(0, Math.min(100, health));
+
+  return { total, up, down, lost, stopped, avgLat, health };
+}
+
+function drawRadar() {
+  if (!canvas || canvas.clientWidth === 0) return;
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  const cx = w / 2;
+  const cy = h / 2;
+
+  const bg = ctx.createRadialGradient(cx, cy, 10, cx, cy, Math.max(w,h)/1.5);
+  bg.addColorStop(0, '#041008');
+  bg.addColorStop(1, '#03060a');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, w, h);
+
+  const hs = getHealthState();
+
+  if (hs.total === 0) {
+    const pulse = 0.4 + Math.sin(scanT * 2) * 0.3;
+    ctx.strokeStyle = `rgba(6,182,212,${pulse})`;
+    ctx.lineWidth = 1.5;
+    for (let r = 30; r < Math.min(w,h)/2; r += 30) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.font = 'bold 24px Consolas, monospace';
+    ctx.fillStyle = `rgba(6,182,212,${pulse})`;
+    ctx.textAlign = 'center';
+    ctx.fillText('STANDBY', cx, cy - 5);
+    ctx.font = '12px Consolas, monospace';
+    ctx.fillStyle = 'rgba(92,107,127,0.9)';
+    ctx.fillText('Menunggu server ditambahkan...', cx, cy + 20);
+    ctx.textAlign = 'left';
+
+    scanT += 0.05;
+    const ss = document.getElementById('screenStatus');
+    if (ss) {
+      ss.textContent = scanActive ? 'STANDBY' : 'STOPPED';
+      ss.style.color = scanActive ? '#06b6d4' : '#5c6b7f';
+    }
+    return;
+  }
+
+  const color = hs.health > 70 ? '#22c55e' : hs.health > 40 ? '#eab308' : '#ef4444';
+
+  ctx.strokeStyle = `rgba(34,197,94,0.2)`;
+  ctx.lineWidth = 1;
+  const maxR = Math.min(w, h) / 2 - 20;
+  for (let r = 30; r < maxR; r += 30) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  ctx.strokeStyle = 'rgba(34,197,94,0.12)';
+  ctx.beginPath();
+  ctx.moveTo(cx - maxR, cy); ctx.lineTo(cx + maxR, cy);
+  ctx.moveTo(cx, cy - maxR); ctx.lineTo(cx, cy + maxR);
+  ctx.stroke();
+
+  ctx.strokeStyle = 'rgba(34,197,94,0.06)';
+  ctx.beginPath();
+  const diag = maxR / Math.SQRT2;
+  ctx.moveTo(cx - diag, cy - diag); ctx.lineTo(cx + diag, cy + diag);
+  ctx.moveTo(cx + diag, cy - diag); ctx.lineTo(cx - diag, cy + diag);
+  ctx.stroke();
+
+  if (scanActive) {
+    sweepAngle += 0.025;
+    if (sweepAngle > Math.PI * 2) sweepAngle -= Math.PI * 2;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(sweepAngle);
+    const sweepGrad = ctx.createLinearGradient(0, 0, maxR, 0);
+    const rgbColor = color === '#22c55e' ? '34,197,94' : color === '#eab308' ? '234,179,8' : '239,68,68';
+    sweepGrad.addColorStop(0, `rgba(${rgbColor},0.5)`);
+    sweepGrad.addColorStop(0.5, `rgba(${rgbColor},0.15)`);
+    sweepGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = sweepGrad;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, maxR, -0.35, 0);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 15;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(maxR, 0);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  }
+
+  blips.forEach((b, i) => {
+    const active = hs.up > i % (Math.max(1, hs.total));
+    const blipColor = active ? color : 'rgba(92,107,127,0.4)';
+    const size = b.size * (1 + Math.sin(scanT * 4 + b.blink * 5) * 0.4);
+    ctx.fillStyle = blipColor;
+    ctx.shadowColor = blipColor;
+    ctx.shadowBlur = active ? 12 : 0;
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, size, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    if (active) {
+      ctx.strokeStyle = blipColor + '44';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, size * 2.5 + Math.sin(scanT * 3 + i) * 3, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  });
+
+  ctx.fillStyle = color;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 20;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  ctx.font = 'bold 20px Consolas, monospace';
+  ctx.fillStyle = color;
+  ctx.fillText(`HEALTH: ${hs.health}%`, 20, 40);
+
+  ctx.font = '12px Consolas, monospace';
+  ctx.fillStyle = '#5c6b7f';
+  ctx.fillText(`ENDPOINTS: ${hs.up}/${hs.total} UP`, 20, 62);
+  ctx.fillText(`AVG LATENCY: ${hs.avgLat ? Math.round(hs.avgLat) + ' ms' : '--'}`, 20, 78);
+  ctx.fillText(`SCANS: ${state.checks}`, 20, 94);
+  ctx.fillText(`DOWN: ${hs.down}  LOST: ${hs.lost}  STOPPED: ${hs.stopped}`, 20, 110);
+
+  ctx.font = 'bold 13px Consolas, monospace';
+  ctx.fillStyle = color;
+  const statusText = scanActive
+    ? (hs.health > 70 ? '● SCANNING HEALTHY' : hs.health > 40 ? '● SCANNING DEGRADED' : '● SCANNING CRITICAL')
+    : '⏸ SCAN PAUSED';
+  ctx.fillText(statusText, w - 210, 40);
+
+  const barsX = w - 180;
+  const barsY = 58;
+  const strength = Math.round((hs.health / 100) * 5);
+  for (let i = 0; i < 5; i++) {
+    const bh = 6 + i * 5;
+    ctx.fillStyle = i < strength ? color : 'rgba(92,107,127,0.25)';
+    ctx.fillRect(barsX + i * 12, barsY + (25 - bh), 8, bh);
+  }
+
+  scanParticles.forEach(p => {
+    p.y += p.vy;
+    if (p.y > h) { p.y = 0; p.x = Math.random() * w; }
+    const alpha = 0.2 + Math.sin(scanT + p.life * 10) * 0.2;
+    ctx.fillStyle = `rgba(6,182,212,${alpha})`;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  if (scanActive) {
+    const scanY = ((scanT * 40) % h);
+    const g2 = ctx.createLinearGradient(0, scanY - 30, 0, scanY);
+    g2.addColorStop(0, 'rgba(34,197,94,0)');
+    g2.addColorStop(1, 'rgba(34,197,94,0.08)');
+    ctx.fillStyle = g2;
+    ctx.fillRect(0, scanY - 30, w, 30);
+  }
+
+  scanT += 0.05;
+
+  const badge = document.getElementById('screenStatus');
+  if (badge) {
+    badge.textContent = scanActive
+      ? (hs.health > 70 ? 'SCANNING' : hs.health > 40 ? 'DEGRADED' : 'CRITICAL')
+      : 'PAUSED';
+    badge.style.color = scanActive ? color : '#5c6b7f';
+  }
+}
+
+function startScan() {
+  scanActive = true;
+  const b = document.getElementById('btnScanStart');
+  if (b) b.classList.add('scanning');
+  log('▶️ Radar scanning dijalankan', 'scan');
+  toast('Scanning dimulai', 'ok');
+}
+
+function stopScan() {
+  scanActive = false;
+  const b = document.getElementById('btnScanStart');
+  if (b) b.classList.remove('scanning');
+  log('⏹️ Radar scanning dihentikan', 'warn');
+  toast('Scanning dihentikan', 'warn');
+}
+
+function pulseRadar() {
+  for (let i = 0; i < 25; i++) {
+    scanParticles.push({
+      x: Math.random() * canvas.clientWidth,
+      y: canvas.clientHeight,
+      vy: -1 - Math.random() * 2,
+      life: Math.random()
+    });
+  }
+  const cx = canvas.clientWidth / 2;
+  const cy = canvas.clientHeight / 2;
+  for (let i = 0; i < 3; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 60 + Math.random() * 100;
+    blips.push({
+      x: cx + Math.cos(angle) * dist,
+      y: cy + Math.sin(angle) * dist,
+      size: 2 + Math.random() * 3,
+      blink: Math.random()
+    });
+  }
+  if (blips.length > 15) blips.splice(0, blips.length - 15);
+  log('⚡ Ping pulse dikirim', 'scan');
+  toast('Pulse dikirim', 'ok');
+}
+
+function downloadScreen() {
+  const a = document.createElement('a');
+  a.href = canvas.toDataURL('image/png');
+  a.download = `cloudrack-radar-${Date.now()}.png`;
+  a.click();
+  toast('Radar disimpan', 'ok');
+}
+
+function startScreenLoop() {
+  if (scanLoop) return;
+  scanLoop = setInterval(drawRadar, 50);
+}
+
+/* ==========================================
+   AUTO CHECK
+========================================== */
+function autoCheckTick() {
+  const active = state.endpoints.filter(e => e.monitoring);
+  if (active.length) {
+    log(`⏱️ Auto-scan: ${active.length} endpoint aktif`, 'scan');
+    active.forEach((ep, i) => setTimeout(() => checkEndpoint(ep.id), i * 300));
+  }
+}
+
+/* ==========================================
+   INIT APLIKASI (dipanggil setelah login)
+========================================== */
+let appStarted = false;
+
+function startApp() {
+  if (appStarted) return;
+  appStarted = true;
+
+  loadState();
+  initTrafficBars();
+  renderLogs();
+  renderAll();
+  resizeCanvas();
+  initParticles();
+  startScreenLoop();
+  tickUptime();
+  updateTrafficBars();
+  renderChart();
+
+  // MATRIX RAIN
+  initMatrix();
+  matrixLoop();
+
+  // CODE STREAM
+  startCodeStream();
+
+  if (state.endpoints.length === 0) {
+    log('CloudRack siap — belum ada server', 'info');
+    log('Masukkan URL untuk memulai scanning', 'info');
+  } else {
+    log(`Sesi dilanjutkan — ${state.endpoints.length} endpoint dimuat`, 'ok');
+  }
+
+  setInterval(tickUptime, 1000);
+  setInterval(tickCountdown, 1000);
+  setInterval(autoCheckTick, 60000);
+  setInterval(tickTraffic, 60000);
+
+  setTimeout(() => tickTraffic(), 3000);
+  trafficCountdown = 57;
+
+  window.addEventListener('beforeunload', () => {
+    if (state.firstServerTime) {
+      state.totalOnlineSeconds += Math.floor((Date.now() - state.firstServerTime) / 1000);
+      state.firstServerTime = Date.now();
+    }
+    saveState();
+  });
+
+  window.addEventListener('online', () => {
+    log('Koneksi online', 'ok');
+    toast('Koneksi online', 'ok');
+    updateHeaderIndicators();
+  });
+  window.addEventListener('offline', () => {
+    log('Koneksi terputus', 'err');
+    toast('Koneksi offline!', 'err');
+    updateHeaderIndicators();
+  });
+}
+
+/* ==========================================
+   START
+========================================== */
+window.addEventListener('load', checkSession);
+
+</script>
+
+</body>
+  </html>
